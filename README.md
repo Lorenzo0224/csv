@@ -1,12 +1,25 @@
-This is the repository for implementation details and technical reports of our paper 'Tailoring the Shapley Value for In-context Example Selection towards Data Wrangling'. 
-
-Main Results of CSV on all datasets can be reproduced by running gpt-AC.py, including the intermediate result during sampling methods.
-
-We recommend you to update with your own OpenAI account by changing the API_key variable in gpt-AC.py. 
-Comparison Results 
-
-Zero, Manual, and BatchER can be reproduced by running gpt-inference.py. The TaskSOTA results are from the original paper, you can go to their official link for reproducing results. 
-
-Our implementation of AutoEM baseline and some other functions, like parrallel sampling with multithreading, will be updated soon.
-
-The main methods are implemented based on fm-data-tasks and BatchER. Thanks for the contribution!
+# Official Implementation and Technical Reports
+ 
+This repository contains the official implementation and technical reports of 'Tailoring the Shapley Value for In-context Example Selection towards Data Wrangling'.
+ 
+## Requirements
+ 
+- Python 3.x
+- Pytorch
+- Numpy
+- Sklearn
+- tslearn
+- tsaug
+ 
+## Running
+ 
+The main results of CSV on all datasets can be reproduced by running `gpt-AC.py`, including the intermediate results during sampling methods.
+ 
+We recommend updating the `API_key` variable in `gpt-AC.py` with your own OpenAI account for optimal performance.
+ 
+- Zero, Manual, and BatchER can be reproduced by running `gpt-inference.py`.
+- The TaskSOTA results are from the original paper. You can visit their official link for reproducing those results.
+ 
+Our implementation of the AutoEM baseline and some other functions, such as parallel sampling with multithreading, will be updated soon.
+ 
+The main methods are implemented based on `fm-data-tasks` and `BatchER`. Thanks for their contributions!
