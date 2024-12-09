@@ -8,8 +8,7 @@ This repository contains the official implementation and technical reports of 'T
 - Pytorch
 - Numpy
 - Sklearn
-- tslearn
-- tsaug
+
  
 ## Running
  
