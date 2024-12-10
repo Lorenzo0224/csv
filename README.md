@@ -1,6 +1,8 @@
-# Official Implementation and Technical Reports
+# Official Implementation of 'Tailoring the Shapley Value for In-context Example Selection towards Data Wrangling'.
+
+# Technical Report
  
-This repository contains the official implementation and technical reports of 'Tailoring the Shapley Value for In-context Example Selection towards Data Wrangling'.
+This repository contains the technical report of our paper 'Tailoring the Shapley Value for In-context Example Selection towards Data Wrangling', see ``
  
 ## Requirements
  
@@ -10,15 +12,24 @@ This repository contains the official implementation and technical reports of 'T
 - Sklearn
 
  
-## Running
+## Usage
+
+We recommend updating the `API_key` variable in `API_key.txt` with your own OpenAI key. For reproducibility purpose, we give an OpenAI key as default.
+
+To evaluate the UEA datasets using the commands:
+
+ACSV:
+
+`python CSV.py [dataset_name] --task [task_name]`
+
+MCSV:
+
+`python CSV.py [dataset_name] --task [task_name]`
+
+BCSV:
+
+`python CSV.py [dataset_name] --task [task_name]`
+
+Use -h or --help option for the detailed messages of the other options, such as the hyper-parameters.
  
-The main results of ACSV and MCSV on all datasets can be reproduced by running `gpt-AC.py`, including the intermediate results during sampling methods.
- 
-We recommend updating the `API_key` variable in `gpt-AC.py` with your own OpenAI account for optimal performance.
- 
-- Zero, Manual, SC(Sample Cluster) can be reproduced by running `gpt-inference.py` from `fm-data-tasks`.
-- The TaskSOTA and BatchER results are from the original paper. You can visit their official link for reproducing those results.
- 
-Our implementation of the AutoEM baseline and some other functions, such as BatchCSV, parallel sampling, our BatchER variant, will be updated soon.
- 
-The main methods are implemented based on `fm-data-tasks` and `BatchER`. Thanks for their contributions!
+The main methods are implemented based on `fm-data-tasks` and `BatchER`. Thanks for the contribution!
