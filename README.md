@@ -2,7 +2,7 @@
 
 # Technical Report
  
-This repository contains the technical report of our paper 'Tailoring the Shapley Value for In-context Example Selection towards Data Wrangling', see ``
+This repository contains the technical report of our paper 'Tailoring the Shapley Value for In-context Example Selection towards Data Wrangling'.
  
 ## Requirements
  
