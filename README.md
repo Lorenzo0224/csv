@@ -14,7 +14,7 @@ This repository contains the technical report of our paper 'Tailoring the Shaple
  
 ## Usage
 
-We recommend updating the `API_key` variable in `API_key.txt` with your own OpenAI key. For reproducibility purpose, we give an OpenAI key as default.
+We recommend updating the `API_key` variable in `API_key.txt` with your OpenAI key. For reproducibility purpose, we present an OpenAI key as default.
 
 To evaluate the UEA datasets using the commands:
 
