@@ -20,15 +20,15 @@ To evaluate the UEA datasets using the commands:
 
 ACSV:
 
-`python CSV.py [dataset_name] --task [task_name]`
+`python ACSV.py [dataset_name] --task [task_name]`
 
 MCSV:
 
-`python CSV.py [dataset_name] --task [task_name]`
+`python MCSV.py [dataset_name] --task [task_name]`
 
 BCSV:
 
-`python CSV.py [dataset_name] --task [task_name]`
+`python BCSV.py [dataset_name] --task [task_name]`
 
 Use -h or --help option for the detailed messages of the other options, such as the hyper-parameters.
  
