@@ -20,10 +20,34 @@ from utils import constants
 from utils.utils import compute_metrics, setup_logger
 from unidecode import unidecode
 import threading
+import tiktoken
 
 import math
 
-dataset_name = 'Adult'
+##todo: global parameters
+
+llm_model = "gpt-4"
+dataset_index = 3
+dataset_type_list = ['entity_matching/structured/','entity_matching/structured/','entity_matching/structured/','entity_matching/structured/','entity_matching/structured/','entity_matching/structured/','entity_matching/structured/', 'schema_matching/', 'error_detection/', 'data_imputation/', 'entity_matching/structured/', 'error_detection/', 'data_imputation/']
+task_list = ['entity_matching', 'entity_matching', 'entity_matching', 'entity_matching', 'entity_matching', 'entity_matching', 'entity_matching', 'schema_matching', 'error_detection', 'data_imputation', 'entity_matching', 'error_detection', 'data_imputation']
+dataset_name_list = ['Amazon-Google','DBLP-ACM','DBLP-GoogleScholar','Fodors-Zagats','iTunes-Amazon','Walmart-Amazon','Beer','Synthea', 'Hospital', 'Buy', 'Adult', 'Restaurant']
+vali_name_list = ['5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry']
+sampletype_list = ["manual", "validation_clusters", "zero"]
+dataset_type = dataset_type_list[dataset_index]
+dataset_name = dataset_name_list[dataset_index]
+task = task_list[dataset_index]
+vali_name = vali_name_list[dataset_index]
+tokennizer = tiktoken.encoding_for_model(llm_model)
+
+'''
+dataset_type = 'data_imputation/'
+dataset_name = 'Buy'
+task = 'data_imputation'
+'''
+Total_m = 100 ##Maximum number of examples in QA
+k = 5
+the_api_key = 'xxx'
+
 
 def list_gcd(lst):
     gcd_result = lst[0]
@@ -32,37 +56,12 @@ def list_gcd(lst):
     return gcd_result
 
 
-
-
-
-##todo: new key is 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
-##todo: set global parameters here
-Total_m = 190 ##Maximum number of examples in QA
-k = 5
-the_api_key = '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'
-'''
-client = OpenAI(
-    base_url="https://api.chatgptid.net/v1",
-    api_key="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"
-)'''
-
-
 client = OpenAI(
     # This is the default and can be omitted
-    api_key='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',
+    api_key='xx',
 )
+openai.api_key = 'xxx'
 
-openai.api_key = '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'
-
-'''
-completion = client.chat.completions.create(
-  model="gpt-3.5-turbo",
-  messages=[
-    {"role": "system", "content": "You are a helpful assistant."},
-    {"role": "user", "content": "Hello!"}
-  ]
-)
-'''
 
 def call_gpt(prompt, max_tokens):
     print(prompt)
@@ -79,8 +78,6 @@ def call_gpt(prompt, max_tokens):
     print("response from chatgpt", pred)
     return pred
 
-##todo: Move these important global parameters into parse_args
-
 logger = logging.getLogger(__name__)
 
 result = []
@@ -90,7 +87,7 @@ def call_api(prefix_exs, prefix_exs2, shapley_value, target_index, size):
     v2 = call_api_once(prefix_exs2)
     if(v1 == -100 or v2 == -100):
         return shapley_value, -100
-    shapley_value[target_index][0] += v2 - v1#todo: how is shapley value computed???
+    shapley_value[target_index][0] += v2 - v1
     shapley_value[target_index][1] += 1
     return shapley_value, v2 - v1
 
@@ -149,7 +146,7 @@ def call_api_once(prefix_exs, test = False, test_num = 100000):
         gt = test_data["label_str"]
         idx = 0
         thenum = test_data.shape[0] if test else min(min(num_run, args.num_print), len(queries))
-        for _ in range(thenum):##todo：set the number of running different for test and validation, anyway, just check the number of different dataset
+        for _ in range(thenum):
             #logger.info(prompt(queries[idx]))
             pred = ""
             if not args.dry_run:
@@ -174,21 +171,6 @@ def call_api_once(prefix_exs, test = False, test_num = 100000):
             logger.info(f"====> {pred} <====")
             #time.sleep(2)
             idx += 1
-
-        # Send to model for predictions
-        '''if not args.dry_run:
-            for query in queries[idx:num_run]:
-                time.sleep(2)
-                preds.append(
-                    manifest.run(
-                        prompt(query),
-                        overwrite_cache=args.overwrite_cache,
-                    )
-                )
-                preds.append(call_gpt(prompt(queries[idx]), args.max_tokens))
-        else:
-            preds.extend([""] * (num_run - idx))'''
-
         # Save trial predictions
         save_data = test_data.iloc[:num_run].copy(deep=True).reset_index()
         gt = gt[:num_run]
@@ -233,10 +215,16 @@ def call_api_once(prefix_exs, test = False, test_num = 100000):
 
     logger.info(f"Final Metrics {json.dumps(trial_metrics, indent=4)}")
     logger.info(f"Metrics dumped to {output_metrics}")
-    if(test):
-        return trial_metrics["f1"], len(preds)##todo: return and print the size of validation, training, and test
+    if(dataset_type.startswith('data_imputation')):
+        if(test):
+            return trial_metrics["acc"], len(preds)
+        else:
+            return trial_metrics["acc"]
     else:
-        return trial_metrics["f1"]
+        if(test):
+            return trial_metrics["f1"], len(preds)
+        else:
+            return trial_metrics["f1"]
 
 def exist_unsampled_data(SSB_sample_recorder):
         for j in range(len(SSB_sample_recorder)):
@@ -264,7 +252,6 @@ def target_random_prompt(train, sample_index):
         for txt, label in zip(sel_train["text"], sel_train["label_str"])
     ]
     prefix_exs = "\n\n".join(serialized_prefixes) + "\n"
-    ##todo: the num_examples + 1 now is just a rough estimation for cost, token-wise and other cost func is required
     return len(sample_index) + 1, prefix_exs
 
 def stratified_sampling_prompt(index, pd_data_files, data_size, record_matrix) ->str:##a greedy approach
@@ -340,84 +327,71 @@ def mysum(inputlist):
         sumoflist = sumoflist + num
     return sumoflist
 
-def ActivatedContributions(Uniform=True, AvgDiff=False, MultiArmIden=False):
+def CondAcc():
     Total_m = 150
     result_list = []
-    scoretest = []
-    scorevali = []
     AvgDiff_klist = []
     tmp_idx = 0
+    num_of_token = 0
     totaltime = time.time() - time.time()
-    if(AvgDiff==True):
-        sqrt_sum = mysum([(i**(1/3)) for i in range(0, k+1)])
-        sample_allo = [int(Total_m*(i**(1/3))/sqrt_sum) for i in range(0, k+1)]
-        gcd = list_gcd(sample_allo)
-        min_sample_allo = [int(x/gcd) for x in sample_allo]
-        AvgDiff_klist = get_AvgDiff_klist(Total_m, min_sample_allo)
     samples = prompt_utils.get_validation_dataset(
-        "outputs/"+dataset_name+"/validation/default/5k_0inst_0cb_validation_clusters_200run_0dry/trial_0.feather",
+        "outputs/"+dataset_name+"/validation/default/" + vali_name + "/trial_0.feather",##todo: change the validation dataset to an existing one
         num_examples=20,
-        task="error_detection",
-    )  # This is n samples from validation set(players), before running this, should make sure the directory is not empty
+        task=task,
+    )  # This is n sample candidates from validation set(players), before running this, should make sure the directory is not empty
     n = len(samples)
     print(samples)
     samples.to_excel('samples'+dataset_name+'.xlsx', index=False)
-    Shapley_Value_record = [[[0, 0] for i in range(k + 1)] for j in range(n)]
-    Shapley_Value = [0 for i in range(n)]
+    CondAcc_record = [[0, 0, 0, 0] for j in range(n)]
+    CondAcc = [0 for i in range(n)]
     starttime = time.time()
-    for current_m in range(Total_m):
-        index_list = []
-        if(Uniform == True):
-            index_list = random.choice(generate_subsets([i for i in range(n)], k))
-        elif(AvgDiff == True):
-            tmp_k = AvgDiff_klist[tmp_idx]
-            index_list = random.choice(size_k_subsets([i for i in range(n)], k, tmp_k))
-            tmp_idx = tmp_idx + 1
-        size = len(index_list)
-        delta_budget, prefix = target_random_prompt(
-            samples, index_list
+    current_m = 0
+    u1 = 0
+    u2 = 0
+    while (current_m < Total_m):
+        rand =random.randint(1,19)
+        permutation = random.sample([i for i in range(n)], rand)
+        random.shuffle(permutation)
+        i=rand-1
+        delta_budget, prefix1 = target_random_prompt(
+            samples, permutation[ : i+1]
         )
-        u = call_api_once(prefix)[0]
-        for target in range(n):
-            if (target in index_list):
-                print(n / size, u)
-                Shapley_Value_record[target][size][0] += (n / size - 1) * u
-            if (target not in index_list and size < k):
-                Shapley_Value_record[target][size][0] += -u
-            Shapley_Value_record[target][size][1] += 1
+        delta_budget, prefix2 = target_random_prompt(
+            samples, permutation[: i + 1]
+        )
+        u1 = call_api_once(prefix1)[0]
+        u2 = call_api_once(prefix2)[0]
+        num_of_token+= len(tokennizer.encode(prefix1)) + len(tokennizer.encode(prefix2))
+        current_m = current_m + 1
+        delta_u = u1 - u2
+        u2 = u1
+        target = permutation[i]
+        CondAcc_record[target][0] = CondAcc_record[target][0] + u1
+        CondAcc_record[target][1] = CondAcc_record[target][1] + 1
+        CondAcc_record[target][2] = CondAcc_record[target][0] + u2
+        CondAcc_record[target][3] = CondAcc_record[target][1] + 1
         if (current_m % 5 == 0):
             endtime = time.time()
             totaltime += endtime - starttime
             starttime = endtime
             for target in range(n):
                 sum = 0
-                for s in range(k):
-                    if (Shapley_Value_record[target][s][1] > 0):
-                        sum += Shapley_Value_record[target][s][0] / Shapley_Value_record[target][s][1]
-                Shapley_Value[target] = sum / n
-            score, vali_score = testcurrent(Shapley_Value, samples)
-            result_list.append([current_m, score, totaltime, Shapley_Value])
+                if (CondAcc_record[target][1] > 0):
+                    CondAcc[target] = CondAcc_record[target][0] / CondAcc_record[target][1] - CondAcc_record[target][2] / CondAcc_record[target][3]
+            score, vali_score = testcurrent(CondAcc, samples)
+            result_list.append([current_m, score, totaltime,CondAcc])
             df1 = pd.DataFrame(
                 ['cur-budget=' + str(current_m), 'testcur' + str(score), 'valiscore' + str(vali_score),
-                 'time(s)' + str(totaltime)])
-            df2 = pd.DataFrame(Shapley_Value)
-            df3 = pd.DataFrame([prefix])
-            if (Uniform):
-                method ='uni'
-            if (AvgDiff):
-                method ='avg'
-            if (MultiArmIden):
-                method = 'mul'
-            excel_file = 'k=' + str(k) + dataset_name +str(method) +'SVnum=' + str(current_m) + '.xlsx'
+                 'time(s)' + str(totaltime), 'tokennum' + str(num_of_token)])
+            df2 = pd.DataFrame(CondAcc)
+            df3 = pd.DataFrame([prefix1])
+            excel_file = 'k=' + str(k) + dataset_name +'MCSV-SVnum=' + str(current_m) + '.xlsx'
             with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
                 df1.to_excel(writer, sheet_name='Sheet1', index=False)
                 df2.to_excel(writer, sheet_name='Sheet2', index=False)
                 df3.to_excel(writer, sheet_name='Sheet3', index=False)
-    ##todo: Is the test being done for all test data? using only validation set? how many are used?
-    ##todo: Are other settings reasonably feasible?
-    # nothing, score = call_api(prefix, prefix2, Shapley_Value, index, size)
-    # #todo: reduce 2 to 1???
     return 0
+
 
 def parse_args() -> argparse.Namespace:##setting default parameters for parser
     """Generate args."""
@@ -426,7 +400,7 @@ def parse_args() -> argparse.Namespace:##setting default parameters for parser
         "--data_dir",
         type=str,
         help="Which data directory to run.",
-        default="D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/error_detection/"+dataset_name,
+        default="D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/" + dataset_type + dataset_name,
         ##todo: It is possible to change the default --data_dir above
         ##required=True,
     )
@@ -434,7 +408,7 @@ def parse_args() -> argparse.Namespace:##setting default parameters for parser
         "--validation_path",
         type=str,
         help="Which data directory to run.",
-        default="D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/error_detection/"+dataset_name,
+        default="D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/" + dataset_type + dataset_name,
         ##todo: It is possible to change the default --data_dir above
         ##required=True,
     )
@@ -488,7 +462,6 @@ def parse_args() -> argparse.Namespace:##setting default parameters for parser
         type=str,
         help="Example generation method",
         default="random",
-        ##todo: When using validation_clusters, the error "PermissionError: [Errno 13] Permission denied: 'D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/entity_matching/structured/Walmart-Amazon'" happens, why?
         choices=["random", "manual", "validation_clusters", "SSB"],
     )
     parser.add_argument("--seed", type=int, default=1234)
@@ -553,7 +526,7 @@ def parse_args() -> argparse.Namespace:##setting default parameters for parser
     return args
 
 def main():
-    ActivatedContributions(AvgDiff=True, MultiArmIden=False)
+    CondAcc()
 
 
 if __name__ == "__main__":
