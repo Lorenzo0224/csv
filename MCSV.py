@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """Run inference."""
 import argparse
 import json
@@ -11,43 +12,65 @@ import numpy
 import pandas as pd
 import csv
 from manifest import Manifest
-
+from openai import OpenAI
+import openai
 import utils.data_utils as data_utils
 import utils.prompt_utils as prompt_utils
 from utils import constants
 from utils.utils import compute_metrics, setup_logger
-import time
-import requests
-import pandas as pd
-k = 2
+from unidecode import unidecode
+import threading
+import tiktoken
 
-def call_kalliope(prompt, max_tokens):
-    headers = {
-        'Authorization': 'glpat-6RMEnrwgPovfC4gWLXxc',
-        'Content-Type': 'application/json',
-    }
+import math
 
-    json_data = {
-        'model': 'llama-2-70b-chat.q5_k_m',
-        'max_tokens': max_tokens,
-        'messages': [
+##todo: global parameters
+
+llm_model = "gpt-4"
+dataset_index = 5
+dataset_type_list = ['entity_matching/structured/','entity_matching/structured/','entity_matching/structured/','entity_matching/structured/','entity_matching/structured/','entity_matching/structured/', 'schema_matching/', 'error_detection/', 'data_imputation/', 'entity_matching/structured/', 'error_detection/', 'data_imputation/']
+task_list = ['entity_matching', 'entity_matching', 'entity_matching', 'entity_matching', 'entity_matching', 'entity_matching', 'entity_matching', 'schema_matching', 'error_detection', 'data_imputation', 'entity_matching', 'error_detection', 'data_imputation']
+dataset_name_list = ['Amazon-Google','DBLP-ACM','DBLP-GoogleScholar','Fodors-Zagats','iTunes-Amazon','Walmart-Amazon','Beer','Synthea', 'Hospital', 'Buy', 'Fodors-Zagats', 'Adult', 'Restaurant']
+vali_name_list = ['5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '3k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry', '5k_0inst_0cb_random_200run_0dry']
+sampletype_list = ["manual", "validation_clusters", "zero"]
+dataset_type = dataset_type_list[dataset_index]
+dataset_name = dataset_name_list[dataset_index]
+task = task_list[dataset_index]
+vali_name = vali_name_list[dataset_index]
+tokennizer = tiktoken.encoding_for_model(llm_model)
+Total_m = 100 ##Maximum number of examples in QA
+k = 5
+the_api_key = xxx
+
+def list_gcd(lst):
+    gcd_result = lst[0]
+    for num in lst[1:]:
+        gcd_result = math.gcd(gcd_result, num)
+    return gcd_result
+
+
+client = OpenAI(
+    # This is the default and can be omitted
+    api_key=xxx,
+)
+openai.api_key = 'xxx'
+
+
+
+def call_gpt(prompt, max_tokens):
+    print(prompt)
+    pred = client.chat.completions.create(
+        messages=[
             {
-                'role': 'user',
-                'content': prompt,
-            },
+                "role": "user",
+                "content": prompt,
+            }
         ],
-    }
-
-    response = requests.post('https://api.kalliope.bigtwitter.cloud.edu.au/v1/chat/completions', headers=headers, json=json_data)
-    #print(response.content)
-    choices = json.loads(response.content)["choices"]
-    result = choices[0]
-    if(result['message']['content'][0] == " "):
-        return result['message']['content'][1:]
-    else:
-        return result['message']['content']
-
-##todo: Move these important global parameters into parse_args
+        model="gpt-4o-mini",
+        max_tokens = max_tokens
+    ).choices[0].message.content
+    print("response from chatgpt", pred)
+    return pred
 
 logger = logging.getLogger(__name__)
 
@@ -58,14 +81,13 @@ def call_api(prefix_exs, prefix_exs2, shapley_value, target_index, size):
     v2 = call_api_once(prefix_exs2)
     if(v1 == -100 or v2 == -100):
         return shapley_value, -100
-    shapley_value[target_index][0] += v2-v1
+    shapley_value[target_index][0] += v2 - v1
     shapley_value[target_index][1] += 1
-    return shapley_value, v2-v1
+    return shapley_value, v2 - v1
 
 def call_api_once(prefix_exs, test = False, test_num = 100000):
-    """Run main method."""
     """Generate args."""
-
+    prefix_exs = unidecode(prefix_exs)
     args = parse_args()
     if args.num_trials < 1:
         raise ValueError("num_trials must be greater than 0.")
@@ -73,13 +95,9 @@ def call_api_once(prefix_exs, test = False, test_num = 100000):
     args.data_dir = str(Path(args.data_dir).resolve())
     setup_logger(args.output_dir)
     logger.info(json.dumps(vars(args), indent=4))
-
     # Will set seed for pandas
     numpy.random.seed(args.seed)
-
-    test_file = "test" if args.do_test else "validation"
     test_file = "test" if test else "validation"
-
     # Read pandas DF datasets
     pd_data_files = data_utils.read_data(
         data_dir=args.data_dir,
@@ -102,23 +120,11 @@ def call_api_once(prefix_exs, test = False, test_num = 100000):
     num_run = test_num if test else num_run
     if args.num_run == -1:
         num_run = test_data.shape[0]
-    num_run = min(num_run, test_data.shape[0])
     #print(test_file, num_run)
     logger.info(f"Train shape is {train_data.shape[0]}")
     logger.info(f"Test shape is {test_data.shape[0]}")
     logger.info(f"Running {num_run} examples for {args.num_trials} trials.")
-    # Setup manifest
-    manifest = Manifest(
-        cache_name=args.cache_name,
-        cache_connection=args.cache_connection,
-        client_name=args.client_name,
-        client_connection=args.client_connection,
-        stop_token=args.stop_token,
-        temperature=args.temperature,
-        max_tokens=args.max_tokens,
-        top_p=1.0,
-        n=1,
-    )
+    preds = []
     if args.add_task_instruction:
         prompt = lambda x: f"{task_instruction} {x}"
     else:
@@ -129,56 +135,36 @@ def call_api_once(prefix_exs, test = False, test_num = 100000):
         queries = []
         for _, row in test_data.iterrows():
             serialized_r = row["text"]
-
+            serialized_r = unidecode(serialized_r)
             queries.append((prefix_exs + "\n" + serialized_r).strip())
-
         gt = test_data["label_str"]
-        preds = []
         idx = 0
-        # Run a few for printing -- they are cached
-        for _ in range(min(num_run, args.num_print)):
-            logger.info(prompt(queries[idx]))
+        thenum = test_data.shape[0] if test else min(min(num_run, args.num_print), len(queries))
+        for _ in range(thenum):
+            #logger.info(prompt(queries[idx]))
             pred = ""
             if not args.dry_run:
-                '''pred = manifest.run(
-                                   prompt(queries[idx]), overwrite_cache=args.overwrite_cache
-                               )'''
                 seconds = 0
-                while(seconds < 240):
+                while(seconds < 40):
                     try:
-                        pred = call_kalliope(prompt(queries[idx]), args.max_tokens)
+                        pred = call_gpt(prompt(queries[idx]), args.max_tokens)
                         break
                     except Exception as e:
                         print(e)
                         seconds += 20
                         time.sleep(seconds)
                         print(seconds)
-                if(seconds == 240):
+                if(seconds == 40):
                     print("not responding after" + str(seconds) + "seconds")
                     return -100
                 else:
                     print("reponded after" + str(seconds) + "seconds")
             preds.append(pred)
             result.append(pred)
-            #print(result)
+            print(result)
             logger.info(f"====> {pred} <====")
             #time.sleep(2)
             idx += 1
-
-        # Send to model for predictions
-        if not args.dry_run:
-            for query in queries[idx:num_run]:
-                #time.sleep(2)
-                '''preds.append(
-                    manifest.run(
-                        prompt(query),
-                        overwrite_cache=args.overwrite_cache,
-                    )
-                )'''
-                preds.append(call_kalliope(prompt(query), args.max_tokens))
-        else:
-            preds.extend([""] * (num_run - idx))
-
         # Save trial predictions
         save_data = test_data.iloc[:num_run].copy(deep=True).reset_index()
         gt = gt[:num_run]
@@ -223,7 +209,16 @@ def call_api_once(prefix_exs, test = False, test_num = 100000):
 
     logger.info(f"Final Metrics {json.dumps(trial_metrics, indent=4)}")
     logger.info(f"Metrics dumped to {output_metrics}")
-    return trial_metrics["f1_avg"]
+    if(dataset_type.startswith('data_imputation')):
+        if(test):
+            return trial_metrics["acc"], len(preds)
+        else:
+            return trial_metrics["acc"]
+    else:
+        if(test):
+            return trial_metrics["f1"], len(preds)
+        else:
+            return trial_metrics["f1"]
 
 def exist_unsampled_data(SSB_sample_recorder):
         for j in range(len(SSB_sample_recorder)):
@@ -240,23 +235,17 @@ def initialize_percentage(SSB_sample_recorder):
     return cnt/all
 
 def target_random_prompt(train, sample_index):
-    """Get random examples for prompt from train data."""
-    '''first_index = sample_index[0]
-    sel_train = train[first_index: first_index + 1]
-    for index in sample_index[1:]:
-        sel_train = pd.concat([train[index: index + 1], sel_train])'''
+    """Get random examples for prompt from training data."""
     sel_train = train.iloc[sample_index, :]
     serialized_prefixes = [
         (txt + label).strip()
         for txt, label in zip(sel_train["text"], sel_train["label_str"])
     ]
     prefix_exs = "\n\n".join(serialized_prefixes) + "\n"
-    #print("confirming prefix_exs in target_random_prompt", prefix_exs)
-    ##todo: the num_examples + 1 now is just a rough estimation for cost, token-wise and other cost func is required
     return len(sample_index) + 1, prefix_exs
 
 def stratified_sampling_prompt(index, pd_data_files, data_size, record_matrix) ->str:##a greedy approach
-    """Get stratified samples for prompt from train data."""
+    """Get stratified samples for prompt from training data."""
     prefix_exs_rows = sample_train_data_with_index(pd_data_files, data_size, index)
     serialized_prefixes = [
         (txt + label).strip()
@@ -266,19 +255,13 @@ def stratified_sampling_prompt(index, pd_data_files, data_size, record_matrix) -
     return prefix_exs
 
 def testcurrent(Shapley_Value, samples):
-    shapley_value_data = Shapley_Value
-    shapley_value = [0 for i in range(len(shapley_value_data))]
-    for i in range(len(shapley_value)):
-        if(shapley_value_data[i][1] > 0):
-            shapley_value[i] = shapley_value_data[i][0] / shapley_value_data[i][1]
-        else:
-            shapley_value[i] = -110
-    topk_index = heapq.nlargest(k + 1, range(len(shapley_value)), shapley_value.__getitem__)
+    topk_index = heapq.nlargest(k + 1, range(len(Shapley_Value)), Shapley_Value.__getitem__)
     delta_budget, prefix = target_random_prompt(
         samples, topk_index
     )
-    score = call_api_once(prefix, test=True, test_num=100)
-    return score
+    score = call_api_once(prefix, test=True, test_num=1000000)
+    vali_score = call_api_once(prefix)
+    return score, vali_score
 
 def sample_train_data_with_index(train: pd.DataFrame, n_rows: int, index):
     """
@@ -293,132 +276,104 @@ def sample_train_data_with_index(train: pd.DataFrame, n_rows: int, index):
     res = pd.concat([train[index: index + 1], res])
     return res
 
-def main():##todo: fill in the following 2 algorithms
-    current_budget = 0
-    Total_budget = 180  ##Maximum number of examples in QA
-    Num_of_Examples = 200
-    budget_threshold = 0
-    budget_step = 10
-    csv_list = []
+def generate_subsets(nums, k):
+    n = len(nums)
+    subsets = []
+    for i in range(1 << n):
+        if bin(i).count('1') <= k:
+            subset = [nums[j] for j in range(n) if (i & (1 << j)) != 0]
+            subsets.append(subset)
+    return subsets
+
+def size_k_subsets(nums, k, tmp_k):
+    n = len(nums)
+    subsets = []
+    for i in range(1 << n):
+        if bin(i).count('1') <= k:
+            subset = [nums[j] for j in range(n) if (i & (1 << j)) != 0]
+            if(len(subset == tmp_k)):
+                subsets.append(subset)
+    return subsets
+
+def sample_subset(nums, k):
+    subsets = generate_subsets(nums, k)
+    return random.choice(subsets)
+
+def AvgDiff_sample_subset(nums, k):
+    subsets = generate_subsets(nums, k)
+    return random.choice(subsets)
+
+def get_AvgDiff_klist(Total_m, min_sample_allo):
+    klist = []
+    for i in range(len(min_sample_allo)):
+        for j in range(min_sample_allo[i]):
+            klist.append(i)
+            if(len(klist)==Total_m):
+                return klist
+
+def mysum(inputlist):
+    sumoflist = 0
+    for num in inputlist:
+        sumoflist = sumoflist + num
+    return sumoflist
+
+def MarginalContributions():
+    Total_m = 150
     result_list = []
-    '''
-    pd_data_files = data_utils.read_data(
-        data_dir="D:\\GitHub\\LLM-EM0001\\fm_data_tasks-main\\fm_data_tasks\\data\\datasets\\entity_matching\\structured\\Walmart-Amazon",
-        class_balanced=True,
-        add_instruction=False,
-        max_train_samples= 1,
-        max_train_percent=-1,
-        sep_tok=".",
-        nan_tok="nan",
-    )'''
-    #length = len(pd_data_files["train"])
+    AvgDiff_klist = []
+    tmp_idx = 0
+    num_of_token = 0
+    totaltime = time.time() - time.time()
     samples = prompt_utils.get_validation_dataset(
-                        "outputs/Walmart-Amazon/validation/default/7k_0inst_0cb_random_200run_0dry/trial_0.feather",
-                        num_examples=20,
-                        task="entity_matching",
-                    )#before running this, should make sure the directory is not empty
-    length = len(samples)
-    #print(length)
-    Shapley_Value = [[0 for i in range(2)] for j in range(length)]
-    SSB_sample_recorder = [[0 for i in range(k)] for j in range(length)]
-    sample_index = []
-    index = random.randint(1, length-1)
+        "outputs/"+dataset_name+"/validation/default/" + vali_name + "/trial_0.feather",##todo: change the validation dataset to an existing one
+        num_examples=20,
+        task=task,
+    )  # This is n sample candidates from validation set(players), before running this, should make sure the directory is not empty
+    n = len(samples)
+    print(samples)
+    samples.to_excel('samples'+dataset_name+'.xlsx', index=False)
+    Shapley_Value_record = [[0, 0] for j in range(n)]
+    Shapley_Value = [0 for i in range(n)]
     starttime = time.time()
-    iterations = 0
-    ip_list = []
-    while index > -1 and current_budget < Total_budget:
-        size = random.randint(1, k) #size of this current sample
-        all_index_list = [i for i in range(length)] #get all index
-        all_index_list.remove(index)
-        sample_index = random.sample(all_index_list, size - 1) #get other indices of the current target data point
-        old_sample_index = sample_index
-        sample_index.append(index) #get all indices
-        #print(sample_index)
-        SSB_sample_recorder[index][size - 1] += 1
-        delta_budget,  prefix = target_random_prompt(
-            samples, old_sample_index
-        ) #compute budget and prompt
-        current_budget += delta_budget #add budget
-        delta_budget, prefix2 = target_random_prompt(
-            samples, sample_index
-        )  # compute budget and prompt
-        current_budget += delta_budget  # add budget
-        #print('currentbudget', current_budget)
-        Shapley_Value, score = call_api(prefix, prefix2, Shapley_Value, index, size) #
-        ip = initialize_percentage(SSB_sample_recorder)
-        if(iterations % 4 == 0):
+    current_m = 0
+    u1 = 0
+    u2 = 0
+    while (current_m < Total_m):
+        permutation = random.sample([i for i in range(n)], 5)
+        random.shuffle(permutation)
+        for i in range(5):
+            delta_budget, prefix = target_random_prompt(
+                samples, permutation[ : i+1]
+            )
+            u1 = call_api_once(prefix)[0]
+            num_of_token+= len(tokennizer.encode(prefix))
+            current_m = current_m + 1
+            delta_u = u1 - u2
+            u2 = u1
+            target = permutation[i]
+            Shapley_Value_record[target][0] = Shapley_Value_record[target][0] + delta_u
+            Shapley_Value_record[target][1] = Shapley_Value_record[target][1] + 1
+        if (current_m % 5 == 0):
             endtime = time.time()
-            print(index, current_budget, Shapley_Value, SSB_sample_recorder, ip)
-            df1 = pd.DataFrame([index, current_budget, ip, score, endtime - starttime])
+            totaltime += endtime - starttime
+            starttime = endtime
+            for target in range(n):
+                sum = 0
+                if (Shapley_Value_record[target][1] > 0):
+                    sum += Shapley_Value_record[target][0] / Shapley_Value_record[target][1]
+            score, vali_score = testcurrent(Shapley_Value, samples)
+            result_list.append([current_m, score, totaltime, Shapley_Value])
+            df1 = pd.DataFrame(
+                ['cur-budget=' + str(current_m), 'testcur' + str(score), 'valiscore' + str(vali_score),
+                 'time(s)' + str(totaltime), 'tokennum' + str(num_of_token)])
             df2 = pd.DataFrame(Shapley_Value)
-            df3 = pd.DataFrame(SSB_sample_recorder)
-            excel_file = 'k=' + str(k) + 'output_excel_file_iter='+str(iterations)+'.xlsx'
+            df3 = pd.DataFrame([prefix])
+            excel_file = 'k=' + str(k) + dataset_name +'MCSV-SVnum=' + str(current_m) + '.xlsx'
             with pd.ExcelWriter(excel_file, engine='xlsxwriter') as writer:
-                # 将第一个数据框写入 Sheet1
                 df1.to_excel(writer, sheet_name='Sheet1', index=False)
-                # 将第二个数据框写入 Sheet2
                 df2.to_excel(writer, sheet_name='Sheet2', index=False)
                 df3.to_excel(writer, sheet_name='Sheet3', index=False)
-        index = exist_unsampled_data(SSB_sample_recorder) #get unsampled index for next round of initialization
-        iterations += 1
-        if(current_budget > budget_threshold):
-            budget_threshold += budget_step
-            score = testcurrent(Shapley_Value, samples)
-            endtime = time.time()
-            result_list.append(['init', ip, current_budget, score, endtime-starttime, Shapley_Value])
-    while current_budget < Total_budget:
-        #index = largest_assertion_probability(SSB_sample_recorder, Shapley_Value)
-        index = Border_Uncertainty_Sampling(Shapley_Value, k)
-        max_partial_budget = max(SSB_sample_recorder[index])#finding the strata with largest
-        for size in range(1, k+1):
-            iterations = max_partial_budget - SSB_sample_recorder[index][size - 1]
-            for j in range(iterations):
-                all_index_list = [i for i in range(len(samples))]
-                all_index_list.remove(index)
-                old_sample_index = random.sample(all_index_list, size - 1)
-                sample_index = old_sample_index
-                sample_index.append(index)
-                SSB_sample_recorder[index][size - 1] += 1
-                delta_budget, prefix = target_random_prompt(
-                    samples, old_sample_index
-                )
-                current_budget += delta_budget
-                delta_budget, prefix2 = target_random_prompt(
-                    samples, sample_index
-                )
-                current_budget += delta_budget
-                Shapley_Value, score = call_api(prefix, prefix2, Shapley_Value, index, size)
-            if (current_budget > budget_threshold):
-                budget_threshold += budget_step
-                score = testcurrent(Shapley_Value, samples)
-                endtime = time.time()
-                result_list.append(['process', current_budget, score, endtime - starttime, Shapley_Value])
-    #print(result_list)
-    with open('output-0112.txt', 'w') as file:
-        # 将print语句的输出写入文件
-        print(result_list, file=file)
     return 0
-
-##todo: finish this part
-def largest_assertion_probability():
-    return 0
-
-##todo: comparison algorithm
-def Border_Uncertainty_Sampling(shapley_value_data, k):
-    shapley_value = [0 for i in range(len(shapley_value_data))]
-    for i in range(len(shapley_value_data)):
-        shapley_value[i] = shapley_value_data[i][0]/shapley_value_data[i][1]
-    topk_index = heapq.nlargest(k + 1, range(len(shapley_value)), shapley_value.__getitem__)
-    topk = heapq.nlargest(k + 1, shapley_value)
-    interval = (topk[len(topk)-2] + topk[len(topk)-1])/2
-    max_evidence = 0
-    max_index = 0
-    for index in topk_index:
-        evidence = abs(shapley_value[index]-interval)*shapley_value_data[index][1]
-        if(evidence > max_evidence):
-            max_evidence = evidence
-            max_index = index
-    return max_index
 
 def parse_args() -> argparse.Namespace:##setting default parameters for parser
     """Generate args."""
@@ -427,7 +382,7 @@ def parse_args() -> argparse.Namespace:##setting default parameters for parser
         "--data_dir",
         type=str,
         help="Which data directory to run.",
-        default="D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/entity_matching/structured/Walmart-Amazon",
+        default="D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/" + dataset_type + dataset_name,
         ##todo: It is possible to change the default --data_dir above
         ##required=True,
     )
@@ -435,7 +390,7 @@ def parse_args() -> argparse.Namespace:##setting default parameters for parser
         "--validation_path",
         type=str,
         help="Which data directory to run.",
-        default="D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/entity_matching/structured/Walmart-Amazon",
+        default="D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/" + dataset_type + dataset_name,
         ##todo: It is possible to change the default --data_dir above
         ##required=True,
     )
@@ -489,7 +444,6 @@ def parse_args() -> argparse.Namespace:##setting default parameters for parser
         type=str,
         help="Example generation method",
         default="random",
-        ##todo: When using validation_clusters, the error "PermissionError: [Errno 13] Permission denied: 'D:/GitHub/LLM-EM0001/fm_data_tasks-main/fm_data_tasks/data/datasets/entity_matching/structured/Walmart-Amazon'" happens, why?
         choices=["random", "manual", "validation_clusters", "SSB"],
     )
     parser.add_argument("--seed", type=int, default=1234)
@@ -552,6 +506,9 @@ def parse_args() -> argparse.Namespace:##setting default parameters for parser
 
     args = parser.parse_args()
     return args
+
+def main():
+    MarginalContributions()
 
 
 if __name__ == "__main__":
