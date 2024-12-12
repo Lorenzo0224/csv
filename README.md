@@ -31,7 +31,8 @@ We use 11 datasets for 4 Data Wrangling tasks：Entity Matching, Data Imputation
 - Python 3.x
 - Pytorch
 - Numpy
-- Sklearn
+- Pandas
+- OpenAI
 
  
 ## Usage
@@ -61,5 +62,7 @@ Use -h or --help option for the detailed messages of the other options, such as 
 - Parallel sampling
 - CSV on other LLMs such as Llama-3
 - RAG support for CSV
+
+## Acknowledgement
  
 The main methods are implemented based on `fm-data-tasks` and `BatchER`. Thanks for the contribution!
