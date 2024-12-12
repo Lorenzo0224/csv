@@ -36,7 +36,7 @@ We use 11 datasets for 4 Data Wrangling tasks：Entity Matching, Data Imputation
  
 ## Usage
 
-We recommend updating the `API_key` variable in `API_key.txt` with your OpenAI api key. For reproducibility purpose, we present an OpenAI api key as default.
+We recommend updating the `API_key` variable in `API_key.txt` with your OpenAI api key. For reproducibility purpose, we provided an OpenAI api key as default.
 
 To evaluate the DW datasets, use the following commands:
 
@@ -48,6 +48,10 @@ MCSV:
 
 `python MCSV.py [dataset_name]`
 
+CondAcc:
+
+`python CondAcc.py [dataset_name]`
+
 Use -h or --help option for the detailed messages of the other options, such as the hyper-parameters.
 
 ## To be updated
@@ -56,5 +60,6 @@ Use -h or --help option for the detailed messages of the other options, such as 
 - BatchER on Data Imputation, Error Detection, and Schema Mapping Tasks
 - Parallel sampling
 - CSV on other LLMs such as Llama-3
+- RAG support for CSV
  
 The main methods are implemented based on `fm-data-tasks` and `BatchER`. Thanks for the contribution!
