@@ -2,7 +2,7 @@
 
 # Paper and Technical Report
  
-This repository contains our paper currently under review at ICDE 2025, see `CSV.pdf` for details. 
+This repository contains our paper explaining the basics of CSV, see `CSV.pdf` for details. 
 
 Additional information can be found in the technical report, see `CSV_techreport.pdf` for details. 
 
@@ -65,4 +65,4 @@ Use -h or --help option for the detailed messages of the other options, such as 
 
 ## Acknowledgement
  
-The main methods are implemented based on `fm-data-tasks` and `BatchER`. Thanks for the contribution!
+The main methods are implemented based on [`fm-data-tasks`](https://github.com/HazyResearch/fm_data_tasks) and [`BatchER`](https://github.com/fmh1art/BatchER). Thanks for the contribution!
