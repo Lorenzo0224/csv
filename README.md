@@ -59,9 +59,7 @@ Use -h or --help option for the detailed messages of the other options, such as 
 
 - The BCSV algorithm
 - BatchER on Data Imputation, Error Detection, and Schema Mapping Tasks
-- Parallel sampling
 - CSV on other LLMs such as Llama-3
-- RAG support for CSV
 
 ## Acknowledgement
  
