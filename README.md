@@ -8,7 +8,7 @@ Additional information can be found in the technical report, see `CSV_techreport
 
 # Task and Datasets
  
-We use 11 datasets for 4 Data Wrangling tasks：Entity Matching, Data Imputation, Error Detection, and Schema Mapping.
+We use 11 datasets for 4 Data Wrangling(DW) tasks：Entity Matching, Data Imputation, Error Detection, and Schema Mapping.
 
 | Dataset | Size | # Attr. |
 | --- | --- | --- |
@@ -49,7 +49,7 @@ MCSV:
 
 `python MCSV.py [dataset_name]`
 
-CondAcc:
+Our Adaptation of the [`CondAcc`](https://github.com/terarachang/DataICL) on DW tasks:
 
 `python CondAcc.py [dataset_name]`
 
