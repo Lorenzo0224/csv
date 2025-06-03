@@ -55,12 +55,6 @@ Our Adaptation of the [`CondAcc`](https://github.com/terarachang/DataICL) on DW 
 
 Use -h or --help option for the detailed messages of the other options, such as the hyper-parameters.
 
-## To be updated
-
-- The BCSV algorithm
-- BatchER on Data Imputation, Error Detection, and Schema Mapping Tasks
-- CSV on other LLMs such as Llama-3
-
 ## Acknowledgement
  
 The main methods are implemented based on [`fm-data-tasks`](https://github.com/HazyResearch/fm_data_tasks) and [`BatchER`](https://github.com/fmh1art/BatchER). Thanks for the contribution!
